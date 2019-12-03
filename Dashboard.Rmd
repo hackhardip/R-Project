@@ -1,0 +1,349 @@
+---
+title: "IPL Analytics"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(openintro)
+library(highcharter)
+library(shiny)
+library(treemap)
+```
+
+```{r}
+deliveries<-read.csv("deliveries.csv")
+matches <- read.csv("matches.csv")
+mycolors <- c("blue","#FFC125","darkgreen","darkorange")
+```
+
+
+Top Batsman
+=============================
+Column
+-----------------------------
+
+### Highest Run scorer
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(tidyquant)
+
+ui <- fluidPage(
+  
+  titlePanel("Highest run scorer"),
+ 
+   plotOutput(outputId = "distPlot"),
+      
+   sidebarPanel(
+   sliderInput(inputId = "batsman",
+                label = "Batsman",
+                min = 1,
+               max = 20,
+              value = 10)
+      
+      )
+   )
+
+
+server <- function(input, output) {
+
+
+    output$distPlot <- renderPlot({
+      
+     bat<-deliveries %>% 
+    group_by(batsman) %>% 
+    summarise(total_runs = sum(batsman_runs)) %>% 
+    arrange(desc(total_runs)) %>% 
+    top_n(n = input$batsman, wt = total_runs) %>% 
+  ggplot(aes(x = reorder(batsman, -total_runs), y = total_runs))+
+  geom_bar(aes(fill = batsman),stat = "identity")+
+  labs(list(title = "Top Batsman", x = "Batsman", y = "Total Runs"))+
+  theme(axis.text.x=element_text(angle=75, hjust=1), plot.title = element_text(size = 8, face = "bold"),text = element_text(size=8))
+     bat
+
+})
+        
+}   
+
+shinyApp(ui = ui, server = server)
+
+
+
+```
+
+Top Bowler
+==================================
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(tidyquant)
+
+
+ui <- fluidPage(
+  
+  titlePanel("Highest Wicket Taker"),
+ 
+   plotOutput(outputId = "distPlot"),
+      
+   sidebarPanel(
+   sliderInput(inputId = "bowler",
+                label = "Bowler",
+                min = 1,
+               max = 20,
+              value = 10)
+      
+      )
+   )
+
+
+server <- function(input, output) {
+
+
+    output$distPlot <- renderPlot({
+      
+  df<-deliveries %>% group_by(bowler) %>% filter(player_dismissed!="") %>% summarise(wickets= length(player_dismissed)) %>% top_n(n=input$bowler,wt=wickets) 
+  
+  df %>% ggplot(aes(reorder(bowler,-wickets),wickets,fill=bowler))+geom_bar(stat = "identity") + ylab("Wickets")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+ xlab("Player")+ ggtitle("Top Bowlers")+ guides(fill=F)
+  
+
+})
+        
+}   
+
+shinyApp(ui = ui, server = server)
+
+
+
+```
+
+Extras
+==================================
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(tidyquant)
+
+ui <- fluidPage(
+  
+  titlePanel("Extras given by team"),
+ 
+   plotOutput(outputId = "distPlot"),
+    
+   sidebarPanel(
+   textInput("team","Team",value = "Chennai Super Kings")
+      
+      )
+      
+      )
+    
+      
+   
+
+
+server <- function(input, output) {
+
+
+    output$distPlot <- renderPlot({
+  
+      
+     ipl <- function(name){
+    data <- deliveries
+    teamname <- levels(data[, 3])
+    teamnamematrix <- data.frame(teamname)
+    colnames(teamnamematrix) <- "Team Name"
+    teamid <- subset(data, batting_team == name)
+    teamname_flag <- FALSE
+    for(i in 1:length(teamname)){
+      if(name == teamname[i]){
+        teamname_flag <- TRUE
+      }
+    }
+    if(!teamname_flag){
+      print(teamnamematrix)
+      stop("Please Enter Correct Team Name from the following\n")
+    }
+    wideruns <-     sum(teamid$wide_runs)
+    byeruns <-      sum(teamid$bye_runs)
+    legbyeruns <-   sum(teamid$legbye_runs)
+    noballruns <-   sum(teamid$noball_runs)
+    penaltyruns <-  sum(teamid$penalty_runs)
+    batsmanruns <-  sum(teamid$batsman_runs)
+    extraruns <-    sum(teamid$extra_runs)
+    givenruns <- rbind.data.frame(wideruns, byeruns, legbyeruns,
+                            noballruns, penaltyruns)
+   rownames(givenruns) <-  c("Wide Runs", "Bye Runs", "LegBye Runs",
+                           "Noball Runs", "Penalty Runs")
+   colnames(givenruns) <- "Runs"
+    v <- paste("Runs conceded by", as.character(name))
+    print(v)
+   print(givenruns)
+   TeamName <- name
+   DifferentRuns <- c("Wide Runs", "Bye Runs", "LegBye Runs",
+            "Noball Runs", "Penalty Runs")
+    library(ggplot2)
+  ggplot(givenruns, aes(x = TeamName ,y = Runs, fill = DifferentRuns)) +
+   geom_bar(width = 1, stat = "identity") +
+   coord_polar("y", start=0) +
+  scale_fill_manual(values=c("goldenrod1","grey27","pink4","chocolate3",
+                             "lightblue3","royalblue4")) + 
+    ggtitle(v)
+}
+ipl(input$team)
+
+
+})
+        
+}   
+
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
+
+
+Batsman Vs Bowler
+==================================
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(tidyquant)
+library(RColorBrewer)
+
+
+ui <- fluidPage(
+  
+  titlePanel("Batsman Vs Bowler"),
+ 
+   plotOutput(outputId = "distPlot"),
+      
+   sidebarPanel(
+   textInput("player","PLAYER",value = "V Kohli")
+      
+      ),
+  sidebarPanel(
+    sliderInput(inputId = "bow",
+                label = "Number of Bowler",
+                min = 1,
+               max = 20,
+              value = 10)
+  )
+   
+      )
+   
+
+
+server <- function(input, output) {
+
+
+    output$distPlot <- renderPlot({
+      
+      Player<- deliveries %>% group_by(batsman,bowler) %>% filter(batsman==input$player) %>% summarise(runs=sum(batsman_runs)) %>% top_n(n=input$bow,wt=runs)
+      
+      treemap(Player, 
+          index=c("batsman","bowler"),  #
+          vSize = "runs",  
+          type="index", 
+          palette = brewer.pal(4,"Blues"),  
+          fontsize.title = 12,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs by Player against different bowlers",
+          fontface.labels = "bold",
+          border.col="#FFFFFF",
+          fontsize.legend = 0,bg.labels = "black",fontcolor.labels= "#FFFFFF",
+          aspRatio= 1.1
+ )
+
+
+})
+        
+}   
+
+shinyApp(ui = ui, server = server)
+
+
+
+```
+
+
+Strike rate
+==================================
+```{r}
+
+library(ggplot2)
+library(tidyverse)
+library(shiny)
+library(tidyquant)
+
+ui <- fluidPage(
+  
+  titlePanel("compare Strike rate"),
+ 
+   plotOutput(outputId = "distPlot"),
+      
+   sidebarPanel(
+   textInput("player","PLAYER",value = "V Kohli")
+      
+      ),
+  sidebarPanel(
+   textInput("player2","PLAYER",value = "RG Sharma")
+      
+      )
+      
+      )
+   
+
+
+server <- function(input, output) {
+
+
+    output$distPlot <- renderPlot({
+      
+     deliveries %>% 
+    filter(batsman==input$player| batsman== input$player2) %>% 
+    group_by(batsman,over) %>% summarise(strike= mean(batsman_runs)*100) %>%  
+    ggplot(aes(over,strike, col=batsman)) + geom_line(size=2) + ylab("Strike Rate") + 
+    ggtitle("Strike rate in different stages of the game ") + scale_x_continuous(breaks = 1:20)
+
+})
+        
+}   
+
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
+
+
+Match Table
+==================================
+```{r}
+datatable(matches,caption = "Match Data",
+          filter="top",
+          options = list(pageLength=20))
+```
+
