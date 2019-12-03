@@ -19,3 +19,4 @@ https://hackhardip.shinyapps.io/dashboard/.
 
 
 
+If you want to work or continue on this project give credits. just download every file and run it. It should work. If not than you can reach me on : hardipparmar999@gmail.com. 
